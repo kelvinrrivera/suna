@@ -1,37 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6399:6379"
-    volumes:
-      - redis_data:/data
-      - ./backend/services/docker/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: redis-server /usr/local/etc/redis/redis.conf --save 60 1 --loglevel warning
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    restart: unless-stopped
-    environment:
-      - RABBITMQ_DEFAULT_USER=myuser
-      - RABBITMQ_DEFAULT_PASS=mypassword
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-
   backend:
     image: ghcr.io/suna-ai/suna-backend:latest
     platform: linux/amd64
@@ -45,12 +12,7 @@ services:
     env_file:
       - ./backend/.env
     depends_on:
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      worker:
-        condition: service_started
+      - worker
 
   worker:
     image: ghcr.io/suna-ai/suna-backend:latest
@@ -63,11 +25,6 @@ services:
       - ./backend/.env:/app/.env:ro
     env_file:
       - ./backend/.env
-    depends_on:
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
 
   frontend:
     init: true
@@ -75,14 +32,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3033:3000"
+      - "3000:3000"
     volumes:
       - ./frontend/.env.local:/app/.env.local:ro
-    env_file:
-      - ./frontend/.env.local
     depends_on:
       - backend
-
-volumes:
-  redis_data:
-  rabbitmq_data:
