@@ -1,6 +1,38 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "2840:6379"
+    volumes:
+      - redis_data:/data
+      - ./backend/services/docker/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "9672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   backend:
     image: ghcr.io/suna-ai/suna-backend:latest
+    container_name: backend
     platform: linux/amd64
     build:
       context: ./backend
@@ -11,11 +43,24 @@ services:
       - ./backend/.env:/app/.env:ro
     env_file:
       - ./backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_SSL=False
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
     depends_on:
-      - worker
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      worker:
+        condition: service_started
 
   worker:
     image: ghcr.io/suna-ai/suna-backend:latest
+    container_name: worker
     platform: linux/amd64
     build:
       context: ./backend
@@ -25,8 +70,21 @@ services:
       - ./backend/.env:/app/.env:ro
     env_file:
       - ./backend/.env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_SSL=False
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   frontend:
+    container_name: frontend
     init: true
     build:
       context: ./frontend
@@ -37,3 +95,11 @@ services:
       - ./frontend/.env.local:/app/.env.local:ro
     depends_on:
       - backend
+
+volumes:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  default:
+    driver: bridge
