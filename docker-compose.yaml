@@ -40,13 +40,6 @@ services:
       - ./backend/.env:/app/.env:ro
     env_file:
       - ./backend/.env
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=
-      - REDIS_SSL=False
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
     depends_on:
       redis:
         condition: service_healthy
@@ -66,13 +59,6 @@ services:
       - ./backend/.env:/app/.env:ro
     env_file:
       - ./backend/.env
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=
-      - REDIS_SSL=False
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
     depends_on:
       redis:
         condition: service_healthy
@@ -88,6 +74,8 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend/.env.local:/app/.env.local:ro
+    env_file:
+      - ./frontend/.env.local
     depends_on:
       - backend
 
